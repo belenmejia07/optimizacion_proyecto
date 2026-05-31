@@ -1,5 +1,7 @@
 import streamlit as st
 from modules.modulo1_presupuesto import resolver_presupuesto, CATEGORIAS
+import plotly.express as px
+import pandas as pd
 
 st.set_page_config(page_title="OptiVida", layout="wide")
 
@@ -35,7 +37,28 @@ elif pagina == "M1 - Presupuesto":
 
         if resultado["estado"] == "optimo":
             st.success("¡Solución óptima encontrada!")
-            st.dataframe(resultado["asignaciones"])
+    
+            # Tabla de resultados
+            df = pd.DataFrame({
+                "Categoría": list(resultado["asignaciones"].keys()),
+                "Monto (Bs)": list(resultado["asignaciones"].values()),
+            })
+            df["% del ingreso"] = (df["Monto (Bs)"] / ingreso * 100).round(1)
+            st.dataframe(df, hide_index=True)
+
+            # Gráfico de torta
+            fig = px.pie(
+                df,
+                values="Monto (Bs)",
+                names="Categoría",
+                title="Distribución del presupuesto"
+            )
+            st.plotly_chart(fig)
+
+            # Guardar datos para módulos siguientes
+            st.session_state["presupuesto_alimentacion"] = resultado["alimentacion"]
+            st.session_state["presupuesto_bienestar"] = resultado["bienestar"]
+            st.info(f"Alimentación disponible para M2: Bs {resultado['alimentacion']}")
         else:
             st.error("El modelo no tiene solución.")
 
