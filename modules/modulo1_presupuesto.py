@@ -1,9 +1,22 @@
+# =============================================================================
+# MODULO 1: Presupuesto Mensual Inteligente
+# Tipo: Programacion Lineal (LP)
+# Solver: GLPK
+# Objetivo: Maximizar utilidad ponderada al distribuir el ingreso mensual
+#            entre categorias de gasto respetando limites minimos y maximos
+# Formulacion:
+#   max  sum(prioridades[c] * x[c])
+#   s.a. sum(x[c]) = ingreso
+#        min[c] * ingreso <= x[c] <= max[c] * ingreso  para todo c
+#        x[c] >= 0
+# =============================================================================
+
 import pyomo.environ as pyo
 from pyomo.opt import SolverStatus, TerminationCondition
 
-# Categorías con sus límites mínimos y máximos (porcentaje del ingreso)
+# Categorias de gasto con sus limites como porcentaje del ingreso mensual
 CATEGORIAS = {
-    "Alimentación":    {"min": 0.15, "max": 0.40},
+    "Alimentacion":    {"min": 0.15, "max": 0.40},
     "Transporte":      {"min": 0.05, "max": 0.20},
     "Estudios":        {"min": 0.05, "max": 0.20},
     "Salud/Bienestar": {"min": 0.05, "max": 0.15},
@@ -12,45 +25,56 @@ CATEGORIAS = {
 }
 
 def resolver_presupuesto(ingreso, prioridades):
-    model = pyo.ConcreteModel()
+    """
+    Resuelve el modelo LP de distribucion de presupuesto mensual.
 
+    Parametros:
+        ingreso (float): Ingreso mensual disponible en Bs.
+        prioridades (dict): Peso de importancia por categoria, entre 0 y 1.
+
+    Retorna:
+        dict con estado, asignaciones por categoria, y presupuestos
+        para alimentacion (->M2) y bienestar (->M4).
+    """
+
+    model = pyo.ConcreteModel()
     categorias = list(CATEGORIAS.keys())
 
-    # Variables de decisión
+    # Variables de decision: monto asignado a cada categoria (continuas, >= 0)
     model.x = pyo.Var(categorias, domain=pyo.NonNegativeReals)
 
-    # Función objetivo
+    # Funcion objetivo: maximizar utilidad ponderada por prioridades del usuario
     model.objetivo = pyo.Objective(
         expr=sum(prioridades[c] * model.x[c] for c in categorias),
         sense=pyo.maximize
     )
 
-    # Restricción 1: todo el ingreso debe ser asignado
+    # Restriccion 1: todo el ingreso debe ser asignado (balance exacto)
     model.balance = pyo.Constraint(
         expr=sum(model.x[c] for c in categorias) == ingreso
     )
 
-    # Restricción 2: límites por categoría
+    # Restriccion 2: cada categoria respeta su rango minimo y maximo
     model.limites = pyo.ConstraintList()
     for c in categorias:
         model.limites.add(model.x[c] >= CATEGORIAS[c]["min"] * ingreso)
         model.limites.add(model.x[c] <= CATEGORIAS[c]["max"] * ingreso)
 
-    # Resolver
+    # Resolver con GLPK
     solver = pyo.SolverFactory("glpk")
     resultado = solver.solve(model)
 
-    # Verificar resultado
+    # Verificar si se encontro solucion optima
     if (resultado.solver.status == SolverStatus.ok and
             resultado.solver.termination_condition == TerminationCondition.optimal):
-        
+
         asignaciones = {c: round(pyo.value(model.x[c]), 2) for c in categorias}
-        
+
         return {
             "estado": "optimo",
             "asignaciones": asignaciones,
-            "alimentacion": asignaciones["Alimentación"],
-            "bienestar": asignaciones["Salud/Bienestar"],
+            "alimentacion": asignaciones["Alimentacion"],  # pasa al M2
+            "bienestar": asignaciones["Salud/Bienestar"],  # pasa al M4
         }
     else:
         return {"estado": "infactible"}
