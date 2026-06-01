@@ -1,0 +1,21 @@
+nombre,categoria,costo_bs,kcal,proteina_g,carbs_g,grasa_g,fibra_g
+Arroz blanco,Cereales,3.5,360,7,79,1,0.4
+Fideo,Cereales,5.0,371,13,74,2,2.5
+Pan,Cereales,8.0,265,9,49,4,2.7
+Avena,Cereales,6.0,389,17,66,7,10.6
+Quinua,Cereales,12.0,368,14,64,6,7.0
+Pollo pechuga,Proteínas,22.0,165,31,0,4,0
+Huevo,Proteínas,1.5,155,13,1,11,0
+Carne molida,Proteínas,28.0,254,26,0,17,0
+Atún en lata,Proteínas,9.0,116,26,0,1,0
+Lenteja,Proteínas,7.0,353,25,60,2,15.6
+Leche,Lácteos,5.5,61,3,5,3,0
+Yogur,Lácteos,7.0,59,10,4,0,0
+Queso fresco,Lácteos,15.0,264,18,3,20,0
+Plátano,Frutas/Verduras,2.0,89,1,23,0,2.6
+Manzana,Frutas/Verduras,4.0,52,0,14,0,2.4
+Naranja,Frutas/Verduras,1.5,47,1,12,0,2.4
+Tomate,Frutas/Verduras,3.0,18,1,4,0,1.2
+Zanahoria,Frutas/Verduras,2.5,41,1,10,0,2.8
+Espinaca,Frutas/Verduras,4.0,23,3,4,0,2.2
+Aceite de soya,Grasas,8.0,884,0,0,100,0

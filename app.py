@@ -1,5 +1,6 @@
 import streamlit as st
 from modules.modulo1_presupuesto import resolver_presupuesto, CATEGORIAS
+from modules.modulo2_comidas import resolver_comidas
 import plotly.express as px
 import pandas as pd
 
@@ -64,7 +65,59 @@ elif pagina == "M1 - Presupuesto":
 
 elif pagina == "M2 - Comidas":
     st.title("M2 - Planificación de Comidas")
-    st.write("Módulo en construcción")
+    st.markdown("**Tipo:** Programación Lineal (LP) | **Solver:** GLPK")
+    st.markdown("---")
+
+    if "presupuesto_alimentacion" not in st.session_state:
+        st.warning("Primero debes resolver el M1 para obtener el presupuesto de alimentación.")
+    else:
+        presupuesto = st.session_state["presupuesto_alimentacion"]
+        st.info(f"Presupuesto recibido del M1: Bs {presupuesto}")
+
+        kcal_min     = st.number_input("Calorías mínimas/día", value=1800)
+        kcal_max     = st.number_input("Calorías máximas/día", value=2000)
+        proteina_min = st.number_input("Proteína mínima/día (g)", value=56)
+        carbs_min    = st.number_input("Carbohidratos mínimos/día (g)", value=225)
+        carbs_max    = st.number_input("Carbohidratos máximos/día (g)", value=290)
+        grasa_min    = st.number_input("Grasas mínimas/día (g)", value=50)
+        grasa_max    = st.number_input("Grasas máximas/día (g)", value=77)
+        fibra_min    = st.number_input("Fibra mínima/día (g)", value=25)
+        fibra_max    = st.number_input("Fibra máxima/día (g)", value=35)
+
+        if st.button("Resolver"):
+            resultado = resolver_comidas(
+            presupuesto, kcal_min, kcal_max,
+            proteina_min, carbs_min, carbs_max,
+            grasa_min, grasa_max, fibra_min, fibra_max
+            )
+
+            if resultado["estado"] == "optimo":
+                st.success("¡Plan de comidas óptimo encontrado!")
+
+                df = pd.DataFrame({
+                "Alimento": list(resultado["plan"].keys()),
+                "Porciones/semana (100g)": list(resultado["plan"].values()),
+                "Gramos/semana": [round(v * 100, 0) for v in resultado["plan"].values()],
+                "Gramos/día": [round(v * 100 / 7, 1) for v in resultado["plan"].values()],
+                })
+                
+                st.dataframe(df, hide_index=True)
+
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Costo semanal", f"Bs {resultado['costo_semanal']}")
+                col2.metric("Calorías/semana", f"{resultado['kcal_semanal']} kcal")
+                col3.metric("Proteína/semana", f"{resultado['proteina_semanal']} g")
+
+                col4, col5, col6 = st.columns(3)
+                col4.metric("Carbs/semana", f"{resultado['carbs_semanal']} g")
+                col5.metric("Grasas/semana", f"{resultado['grasa_semanal']} g")
+                col6.metric("Fibra/semana", f"{resultado['fibra_semanal']} g")
+
+                st.session_state["kcal_cubierta"] = resultado["kcal_semanal"] / 7
+                st.session_state["proteina_cubierta"] = resultado["proteina_semanal"] / 7
+
+            else:
+                st.error("No se encontró solución. Ajusta los requerimientos nutricionales.")
 
 elif pagina == "M3 - Estudios":
     st.title("M3 - Calendario de Estudios")
