@@ -29,13 +29,12 @@ if pagina == "Inicio":
     | M4 | MINLP | Optimiza tu bienestar estudiantil |
     """)
 
-# ── MÓDULO 1 ───────────────────────────────────────────────────────────────
 elif pagina == "M1 - Presupuesto":
     st.title("M1 - Presupuesto Mensual")
     st.markdown("**Tipo:** Programación Lineal (LP) | **Solver:** GLPK")
     st.markdown("---")
 
-    ingreso = st.number_input("Ingreso mensual (Bs)", min_value=500.0, value=3000.0, step=100.0)
+    ingreso = st.number_input("Ingreso mensual (Bs)", min_value=0.0, value=3000.0, step=100.0)
 
     st.markdown("**Prioridades por categoría** (0 = baja, 1 = alta)")
     prioridades = {}
@@ -43,14 +42,20 @@ elif pagina == "M1 - Presupuesto":
         prioridades[cat] = st.slider(cat, 0.0, 1.0, 0.5, step=0.05)
 
     if st.button("Resolver"):
-        resultado = resolver_presupuesto(ingreso, prioridades)
-        if resultado["estado"] == "optimo":
-            st.session_state["resultado_m1"] = resultado
-            st.session_state["ingreso_m1"] = ingreso
-            st.session_state["presupuesto_alimentacion"] = resultado["alimentacion"]
-            st.session_state["presupuesto_bienestar"] = resultado["bienestar"]
+        if ingreso <= 0:
+            st.error("El ingreso debe ser mayor a 0.")
+            st.session_state.pop("resultado_m1", None)
+            st.session_state.pop("presupuesto_alimentacion", None)
+            st.session_state.pop("presupuesto_bienestar", None)
         else:
-            st.error("El modelo no tiene solución.")
+            resultado = resolver_presupuesto(ingreso, prioridades)
+            if resultado["estado"] == "optimo":
+                st.session_state["resultado_m1"] = resultado
+                st.session_state["ingreso_m1"] = ingreso
+                st.session_state["presupuesto_alimentacion"] = resultado["alimentacion"]
+                st.session_state["presupuesto_bienestar"] = resultado["bienestar"]
+            else:
+                st.error("El modelo no tiene solución.")
 
     # Mostrar resultado guardado
     if "resultado_m1" in st.session_state:
@@ -92,17 +97,26 @@ elif pagina == "M2 - Comidas":
         fibra_max    = st.number_input("Fibra máxima/día (g)", value=35)
 
         if st.button("Resolver"):
-            resultado = resolver_comidas(
-                presupuesto, kcal_min, kcal_max,
-                proteina_min, carbs_min, carbs_max,
-                grasa_min, grasa_max, fibra_min, fibra_max
-            )
-            if resultado["estado"] == "optimo":
-                st.session_state["resultado_m2"] = resultado
-                st.session_state["kcal_cubierta"] = resultado["kcal_semanal"] / 7
-                st.session_state["proteina_cubierta"] = resultado["proteina_semanal"] / 7
+            if kcal_min >= kcal_max:
+                st.error("Las calorías mínimas deben ser menores que las máximas.")
+            elif carbs_min >= carbs_max:
+                st.error("Los carbohidratos mínimos deben ser menores que los máximos.")
+            elif grasa_min >= grasa_max:
+                st.error("Las grasas mínimas deben ser menores que las máximas.")
+            elif fibra_min >= fibra_max:
+                st.error("La fibra mínima debe ser menor que la máxima.")
             else:
-                st.error("No se encontró solución. Ajusta los requerimientos nutricionales.")
+                resultado = resolver_comidas(
+                    presupuesto, kcal_min, kcal_max,
+                    proteina_min, carbs_min, carbs_max,
+                    grasa_min, grasa_max, fibra_min, fibra_max
+                )
+                if resultado["estado"] == "optimo":
+                    st.session_state["resultado_m2"] = resultado
+                    st.session_state["kcal_cubierta"] = resultado["kcal_semanal"] / 7
+                    st.session_state["proteina_cubierta"] = resultado["proteina_semanal"] / 7
+                else:
+                    st.error("No se encontró solución. Ajusta los requerimientos nutricionales.")
 
         # Mostrar resultado guardado
         if "resultado_m2" in st.session_state:
@@ -152,12 +166,17 @@ elif pagina == "M3 - Estudios":
     max_bloques_dia = st.slider("Máximo de bloques de estudio por día", 1, 4, 3)
 
     if st.button("Resolver", key="resolver_m3"):
-        resultado = resolver_estudios(bloques_bloqueados, prioridades, max_bloques_dia=max_bloques_dia)
-        if resultado["estado"] == "optimo":
-            st.session_state["resultado_m3"] = resultado
-            st.session_state["bloques_libres"] = resultado["bloques_libres"]
-        else:
-            st.error("No se encontró solución. Reduce los bloques bloqueados o el mínimo de horas.")
+        # Validando que no se bloqueen todos lo bloques
+        if len(bloques_bloqueados) >= len(DIAS) * len(BLOQUES):
+            st.error("No puedes bloquear todos los bloques.")
+            st.stop()
+        else: 
+            resultado = resolver_estudios(bloques_bloqueados, prioridades, max_bloques_dia=max_bloques_dia)
+            if resultado["estado"] == "optimo":
+                st.session_state["resultado_m3"] = resultado
+                st.session_state["bloques_libres"] = resultado["bloques_libres"]
+            else:
+                st.error("No se encontró solución. Reduce los bloques bloqueados o el mínimo de horas.")
 
     # Mostrar resultado guardado
     if "resultado_m3" in st.session_state:
@@ -207,11 +226,16 @@ elif pagina == "M4 - Bienestar":
             pesos[item] = st.slider(item, 0.0, 1.0, 0.5, step=0.05, key=f"peso_{item}")
 
         if st.button("Resolver", key="resolver_m4"):
-            resultado = resolver_bienestar(presupuesto, bloques_libres, pesos)
-            if resultado["estado"] == "optimo":
-                st.session_state["resultado_m4"] = resultado
+            # Validando que el presupuesto para el bienestar no sea menor o igual a cero
+            if presupuesto <= 0:
+                st.error("El presupuesto de bienestar es 0. Ajusta las prioridades en el M1.")
+                st.stop()
             else:
-                st.error("No se encontró solución. Verifica el presupuesto disponible.")
+                resultado = resolver_bienestar(presupuesto, bloques_libres, pesos)
+                if resultado["estado"] == "optimo":
+                    st.session_state["resultado_m4"] = resultado
+                else:
+                    st.error("No se encontró solución. Verifica el presupuesto disponible.")
 
         # Mostrar resultado guardado
         if "resultado_m4" in st.session_state:
