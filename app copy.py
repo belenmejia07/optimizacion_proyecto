@@ -8,6 +8,7 @@ import pandas as pd
 
 st.set_page_config(page_title="OptiVida", layout="wide")
 
+# Navegación en el sidebar
 st.sidebar.title("OptiVida")
 st.sidebar.markdown("---")
 
@@ -16,25 +17,17 @@ pagina = st.sidebar.radio(
     ["Inicio", "M1 - Presupuesto", "M2 - Comidas", "M3 - Estudios", "M4 - Bienestar", "Resumen"]
 )
 
-# ── INICIO ─────────────────────────────────────────────────────────────────
+# Mostrar página según selección
 if pagina == "Inicio":
     st.title("Sistema de Optimización de Vida Estudiantil")
     st.write("Selecciona un módulo en el menú lateral para comenzar.")
-    st.markdown("""
-    | Módulo | Tipo | Descripción |
-    |--------|------|-------------|
-    | M1 | LP | Distribuye tu presupuesto mensual |
-    | M2 | LP | Planifica tus comidas semanales |
-    | M3 | MILP | Organiza tu calendario de estudios |
-    | M4 | MINLP | Optimiza tu bienestar estudiantil |
-    """)
 
-# ── MÓDULO 1 ───────────────────────────────────────────────────────────────
 elif pagina == "M1 - Presupuesto":
     st.title("M1 - Presupuesto Mensual")
     st.markdown("**Tipo:** Programación Lineal (LP) | **Solver:** GLPK")
     st.markdown("---")
 
+    # Entradas
     ingreso = st.number_input("Ingreso mensual (Bs)", min_value=500.0, value=3000.0, step=100.0)
 
     st.markdown("**Prioridades por categoría** (0 = baja, 1 = alta)")
@@ -44,39 +37,42 @@ elif pagina == "M1 - Presupuesto":
 
     if st.button("Resolver"):
         resultado = resolver_presupuesto(ingreso, prioridades)
+
         if resultado["estado"] == "optimo":
+            st.success("¡Solución óptima encontrada!")
             st.session_state["resultado_m1"] = resultado
-            st.session_state["ingreso_m1"] = ingreso
+    
+            # Tabla de resultados
+            df = pd.DataFrame({
+                "Categoría": list(resultado["asignaciones"].keys()),
+                "Monto (Bs)": list(resultado["asignaciones"].values()),
+            })
+            df["% del ingreso"] = (df["Monto (Bs)"] / ingreso * 100).round(1)
+            st.dataframe(df, hide_index=True)
+
+            # Gráfico de torta
+            fig = px.pie(
+                df,
+                values="Monto (Bs)",
+                names="Categoría",
+                title="Distribución del presupuesto"
+            )
+            st.plotly_chart(fig)
+
+            # Guardar datos para módulos siguientes
             st.session_state["presupuesto_alimentacion"] = resultado["alimentacion"]
             st.session_state["presupuesto_bienestar"] = resultado["bienestar"]
+            st.info(f"Alimentación disponible para M2: Bs {resultado['alimentacion']}")
         else:
             st.error("El modelo no tiene solución.")
 
-    # Mostrar resultado guardado
-    if "resultado_m1" in st.session_state:
-        resultado = st.session_state["resultado_m1"]
-        ingreso_guardado = st.session_state["ingreso_m1"]
-        st.success("¡Solución óptima encontrada!")
-
-        df = pd.DataFrame({
-            "Categoría": list(resultado["asignaciones"].keys()),
-            "Monto (Bs)": list(resultado["asignaciones"].values()),
-        })
-        df["% del ingreso"] = (df["Monto (Bs)"] / ingreso_guardado * 100).round(1)
-        st.dataframe(df, hide_index=True)
-
-        fig = px.pie(df, values="Monto (Bs)", names="Categoría", title="Distribución del presupuesto")
-        st.plotly_chart(fig)
-        st.info(f"Alimentación disponible para M2: Bs {resultado['alimentacion']}")
-
-# ── MÓDULO 2 ───────────────────────────────────────────────────────────────
 elif pagina == "M2 - Comidas":
     st.title("M2 - Planificación de Comidas")
     st.markdown("**Tipo:** Programación Lineal (LP) | **Solver:** GLPK")
     st.markdown("---")
 
     if "presupuesto_alimentacion" not in st.session_state:
-        st.warning("Primero debes resolver el M1.")
+        st.warning("Primero debes resolver el M1 para obtener el presupuesto de alimentación.")
     else:
         presupuesto = st.session_state["presupuesto_alimentacion"]
         st.info(f"Presupuesto recibido del M1: Bs {presupuesto}")
@@ -93,41 +89,40 @@ elif pagina == "M2 - Comidas":
 
         if st.button("Resolver"):
             resultado = resolver_comidas(
-                presupuesto, kcal_min, kcal_max,
-                proteina_min, carbs_min, carbs_max,
-                grasa_min, grasa_max, fibra_min, fibra_max
+            presupuesto, kcal_min, kcal_max,
+            proteina_min, carbs_min, carbs_max,
+            grasa_min, grasa_max, fibra_min, fibra_max
             )
+
             if resultado["estado"] == "optimo":
+                st.success("¡Plan de comidas óptimo encontrado!")
                 st.session_state["resultado_m2"] = resultado
-                st.session_state["kcal_cubierta"] = resultado["kcal_semanal"] / 7
-                st.session_state["proteina_cubierta"] = resultado["proteina_semanal"] / 7
-            else:
-                st.error("No se encontró solución. Ajusta los requerimientos nutricionales.")
 
-        # Mostrar resultado guardado
-        if "resultado_m2" in st.session_state:
-            resultado = st.session_state["resultado_m2"]
-            st.success("¡Plan de comidas óptimo encontrado!")
-
-            df = pd.DataFrame({
+                df = pd.DataFrame({
                 "Alimento": list(resultado["plan"].keys()),
                 "Porciones/semana (100g)": list(resultado["plan"].values()),
                 "Gramos/semana": [round(v * 100, 0) for v in resultado["plan"].values()],
                 "Gramos/día": [round(v * 100 / 7, 1) for v in resultado["plan"].values()],
-            })
-            st.dataframe(df, hide_index=True)
+                })
+                
+                st.dataframe(df, hide_index=True)
 
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Costo semanal", f"Bs {resultado['costo_semanal']}")
-            col2.metric("Calorías/semana", f"{resultado['kcal_semanal']} kcal")
-            col3.metric("Proteína/semana", f"{resultado['proteina_semanal']} g")
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Costo semanal", f"Bs {resultado['costo_semanal']}")
+                col2.metric("Calorías/semana", f"{resultado['kcal_semanal']} kcal")
+                col3.metric("Proteína/semana", f"{resultado['proteina_semanal']} g")
 
-            col4, col5, col6 = st.columns(3)
-            col4.metric("Carbs/semana", f"{resultado['carbs_semanal']} g")
-            col5.metric("Grasas/semana", f"{resultado['grasa_semanal']} g")
-            col6.metric("Fibra/semana", f"{resultado['fibra_semanal']} g")
+                col4, col5, col6 = st.columns(3)
+                col4.metric("Carbs/semana", f"{resultado['carbs_semanal']} g")
+                col5.metric("Grasas/semana", f"{resultado['grasa_semanal']} g")
+                col6.metric("Fibra/semana", f"{resultado['fibra_semanal']} g")
 
-# ── MÓDULO 3 ───────────────────────────────────────────────────────────────
+                st.session_state["kcal_cubierta"] = resultado["kcal_semanal"] / 7
+                st.session_state["proteina_cubierta"] = resultado["proteina_semanal"] / 7
+
+            else:
+                st.error("No se encontró solución. Ajusta los requerimientos nutricionales.")
+
 elif pagina == "M3 - Estudios":
     st.title("M3 - Calendario de Estudios")
     st.markdown("**Tipo:** Programación Entera Mixta (MILP) | **Solver:** GLPK")
@@ -153,37 +148,41 @@ elif pagina == "M3 - Estudios":
 
     if st.button("Resolver", key="resolver_m3"):
         resultado = resolver_estudios(bloques_bloqueados, prioridades, max_bloques_dia=max_bloques_dia)
+        st.write("Prioridades enviadas al modelo:", prioridades)
+
         if resultado["estado"] == "optimo":
+            st.success("¡Calendario óptimo generado!")
             st.session_state["resultado_m3"] = resultado
+
+            # Mostrar calendario
+            st.markdown("### Calendario semanal")
+            import pandas as pd
+            filas = []
+            for d in DIAS:
+                fila = {"Día": d}
+                for b in BLOQUES:
+                    materia = resultado["calendario"][d][b]
+                    fila[f"Bloque {b}"] = materia if materia else "—"
+                filas.append(fila)
+
+            df_cal = pd.DataFrame(filas)
+            st.dataframe(df_cal, hide_index=True, use_container_width=True)
+
+            # Horas por materia
+            st.markdown("### Horas por materia")
+            df_horas = pd.DataFrame({
+                "Materia": list(resultado["horas_por_materia"].keys()),
+                "Horas/semana": list(resultado["horas_por_materia"].values()),
+            })
+            st.dataframe(df_horas, hide_index=True)
+
+            # Guardar para M4
             st.session_state["bloques_libres"] = resultado["bloques_libres"]
+            st.info("Bloques libres guardados para el M4.")
+
         else:
             st.error("No se encontró solución. Reduce los bloques bloqueados o el mínimo de horas.")
 
-    # Mostrar resultado guardado
-    if "resultado_m3" in st.session_state:
-        resultado = st.session_state["resultado_m3"]
-        st.success("¡Calendario óptimo generado!")
-
-        st.markdown("### Calendario semanal")
-        filas = []
-        for d in DIAS:
-            fila = {"Día": d}
-            for b in BLOQUES:
-                materia = resultado["calendario"][d][b]
-                fila[f"Bloque {b}"] = materia if materia else "—"
-            filas.append(fila)
-        df_cal = pd.DataFrame(filas)
-        st.dataframe(df_cal, hide_index=True, use_container_width=True)
-
-        st.markdown("### Horas por materia")
-        df_horas = pd.DataFrame({
-            "Materia": list(resultado["horas_por_materia"].keys()),
-            "Horas/semana": list(resultado["horas_por_materia"].values()),
-        })
-        st.dataframe(df_horas, hide_index=True)
-        st.info("Bloques libres guardados para el M4.")
-
-# ── MÓDULO 4 ───────────────────────────────────────────────────────────────
 elif pagina == "M4 - Bienestar":
     st.title("M4 - Bienestar Estudiantil")
     st.markdown("**Tipo:** Programación No Lineal Entera Mixta (MINLP) | **Solver:** IPOPT")
@@ -208,40 +207,40 @@ elif pagina == "M4 - Bienestar":
 
         if st.button("Resolver", key="resolver_m4"):
             resultado = resolver_bienestar(presupuesto, bloques_libres, pesos)
+
             if resultado["estado"] == "optimo":
+                st.success("¡Plan de bienestar óptimo encontrado!")
                 st.session_state["resultado_m4"] = resultado
-            else:
-                st.error("No se encontró solución. Verifica el presupuesto disponible.")
 
-        # Mostrar resultado guardado
-        if "resultado_m4" in st.session_state:
-            resultado = st.session_state["resultado_m4"]
-            st.success("¡Plan de bienestar óptimo encontrado!")
-
-            filas = []
-            for item, datos in resultado["seleccionados"].items():
-                filas.append({
+                import pandas as pd
+                filas = []
+                for item, datos in resultado["seleccionados"].items():
+                    filas.append({
                     "Ítem": item,
                     "Gasto (Bs)": datos["gasto_bs"],
                     "Utilidad": datos["utilidad"],
                 })
-            df = pd.DataFrame(filas)
-            st.dataframe(df, hide_index=True)
+                df = pd.DataFrame(filas)
+                st.dataframe(df, hide_index=True)
 
-            col1, col2 = st.columns(2)
-            col1.metric("Gasto total", f"Bs {resultado['gasto_total']}")
-            col2.metric("Utilidad total", resultado["utilidad_total"])
+                col1, col2 = st.columns(2)
+                col1.metric("Gasto total", f"Bs {resultado['gasto_total']}")
+                col2.metric("Utilidad total", resultado["utilidad_total"])
 
-# ── RESUMEN ────────────────────────────────────────────────────────────────
+            else:
+                st.error("No se encontró solución. Verifica el presupuesto disponible.")
+
 elif pagina == "Resumen":
     st.title("📊 Resumen del Sistema")
     st.markdown("---")
 
+    # Verificar qué módulos están resueltos
     m1_listo = "resultado_m1" in st.session_state
     m2_listo = "resultado_m2" in st.session_state
     m3_listo = "resultado_m3" in st.session_state
     m4_listo = "resultado_m4" in st.session_state
 
+    # Estado de módulos
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("M1 Presupuesto", "✅ Resuelto" if m1_listo else "⬜ Pendiente")
     col2.metric("M2 Comidas", "✅ Resuelto" if m2_listo else "⬜ Pendiente")
