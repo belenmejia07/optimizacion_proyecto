@@ -2,6 +2,7 @@ import streamlit as st
 from modules.modulo1_presupuesto import resolver_presupuesto, CATEGORIAS
 from modules.modulo2_comidas import resolver_comidas
 from modules.modulo3_estudios import resolver_estudios, MATERIAS, DIAS, BLOQUES
+from modules.modulo4_bienestar import resolver_bienestar, ITEMS
 import plotly.express as px
 import pandas as pd
 
@@ -39,6 +40,7 @@ elif pagina == "M1 - Presupuesto":
 
         if resultado["estado"] == "optimo":
             st.success("¡Solución óptima encontrada!")
+            st.session_state["resultado_m1"] = resultado
     
             # Tabla de resultados
             df = pd.DataFrame({
@@ -94,6 +96,7 @@ elif pagina == "M2 - Comidas":
 
             if resultado["estado"] == "optimo":
                 st.success("¡Plan de comidas óptimo encontrado!")
+                st.session_state["resultado_m2"] = resultado
 
                 df = pd.DataFrame({
                 "Alimento": list(resultado["plan"].keys()),
@@ -149,6 +152,7 @@ elif pagina == "M3 - Estudios":
 
         if resultado["estado"] == "optimo":
             st.success("¡Calendario óptimo generado!")
+            st.session_state["resultado_m3"] = resultado
 
             # Mostrar calendario
             st.markdown("### Calendario semanal")
@@ -181,8 +185,102 @@ elif pagina == "M3 - Estudios":
 
 elif pagina == "M4 - Bienestar":
     st.title("M4 - Bienestar Estudiantil")
-    st.write("Módulo en construcción")
+    st.markdown("**Tipo:** Programación No Lineal Entera Mixta (MINLP) | **Solver:** IPOPT")
+    st.markdown("---")
+
+    if "presupuesto_bienestar" not in st.session_state:
+        st.warning("Primero debes resolver el M1.")
+    elif "bloques_libres" not in st.session_state:
+        st.warning("Primero debes resolver el M3.")
+    else:
+        presupuesto = st.session_state["presupuesto_bienestar"]
+        bloques_libres = st.session_state["bloques_libres"]
+        horas_libres = sum(bloques_libres.values()) * 2
+
+        st.info(f"Presupuesto de bienestar del M1: Bs {presupuesto}")
+        st.info(f"Horas libres disponibles del M3: {horas_libres} horas")
+
+        st.markdown("**Importancia de cada ítem** (0 = baja, 1 = alta)")
+        pesos = {}
+        for item in ITEMS:
+            pesos[item] = st.slider(item, 0.0, 1.0, 0.5, step=0.05, key=f"peso_{item}")
+
+        if st.button("Resolver", key="resolver_m4"):
+            resultado = resolver_bienestar(presupuesto, bloques_libres, pesos)
+
+            if resultado["estado"] == "optimo":
+                st.success("¡Plan de bienestar óptimo encontrado!")
+                st.session_state["resultado_m4"] = resultado
+
+                import pandas as pd
+                filas = []
+                for item, datos in resultado["seleccionados"].items():
+                    filas.append({
+                    "Ítem": item,
+                    "Gasto (Bs)": datos["gasto_bs"],
+                    "Utilidad": datos["utilidad"],
+                })
+                df = pd.DataFrame(filas)
+                st.dataframe(df, hide_index=True)
+
+                col1, col2 = st.columns(2)
+                col1.metric("Gasto total", f"Bs {resultado['gasto_total']}")
+                col2.metric("Utilidad total", resultado["utilidad_total"])
+
+            else:
+                st.error("No se encontró solución. Verifica el presupuesto disponible.")
 
 elif pagina == "Resumen":
-    st.title("Resumen del Sistema")
-    st.write("Módulo en construcción")
+    st.title("📊 Resumen del Sistema")
+    st.markdown("---")
+
+    # Verificar qué módulos están resueltos
+    m1_listo = "resultado_m1" in st.session_state
+    m2_listo = "resultado_m2" in st.session_state
+    m3_listo = "resultado_m3" in st.session_state
+    m4_listo = "resultado_m4" in st.session_state
+
+    # Estado de módulos
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("M1 Presupuesto", "✅ Resuelto" if m1_listo else "⬜ Pendiente")
+    col2.metric("M2 Comidas", "✅ Resuelto" if m2_listo else "⬜ Pendiente")
+    col3.metric("M3 Estudios", "✅ Resuelto" if m3_listo else "⬜ Pendiente")
+    col4.metric("M4 Bienestar", "✅ Resuelto" if m4_listo else "⬜ Pendiente")
+
+    st.markdown("---")
+
+    if not any([m1_listo, m2_listo, m3_listo, m4_listo]):
+        st.warning("Resuelve los módulos en orden para ver el resumen aquí.")
+    else:
+        if m1_listo:
+            st.markdown("### M1 — Presupuesto Mensual")
+            r1 = st.session_state["resultado_m1"]
+            df1 = pd.DataFrame({
+                "Categoría": list(r1["asignaciones"].keys()),
+                "Monto (Bs)": list(r1["asignaciones"].values()),
+            })
+            st.dataframe(df1, hide_index=True)
+
+        if m2_listo:
+            st.markdown("### M2 — Plan de Comidas")
+            r2 = st.session_state["resultado_m2"]
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Costo semanal", f"Bs {r2['costo_semanal']}")
+            col2.metric("Calorías/semana", f"{r2['kcal_semanal']} kcal")
+            col3.metric("Proteína/semana", f"{r2['proteina_semanal']} g")
+
+        if m3_listo:
+            st.markdown("### M3 — Calendario de Estudios")
+            r3 = st.session_state["resultado_m3"]
+            df3 = pd.DataFrame({
+                "Materia": list(r3["horas_por_materia"].keys()),
+                "Horas/semana": list(r3["horas_por_materia"].values()),
+            })
+            st.dataframe(df3, hide_index=True)
+
+        if m4_listo:
+            st.markdown("### M4 — Plan de Bienestar")
+            r4 = st.session_state["resultado_m4"]
+            col1, col2 = st.columns(2)
+            col1.metric("Gasto total", f"Bs {r4['gasto_total']}")
+            col2.metric("Utilidad total", r4["utilidad_total"])
