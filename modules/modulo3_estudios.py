@@ -30,7 +30,7 @@ MATERIAS = [
 DIAS = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"]
 BLOQUES = [1, 2, 3, 4]  # 4 bloques de 2 horas por dia
 
-def resolver_estudios(bloques_bloqueados, prioridades, min_horas=6, max_bloques_dia=3):
+def resolver_estudios(bloques_bloqueados, prioridades, min_horas=2, max_bloques_dia=3):
     """
     Resuelve el modelo MILP de asignacion de bloques de estudio.
 
