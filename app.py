@@ -36,10 +36,32 @@ elif pagina == "M1 - Presupuesto":
 
     ingreso = st.number_input("Ingreso mensual (Bs)", min_value=0.0, value=3000.0, step=100.0)
 
-    st.markdown("**Prioridades por categoría** (0 = baja, 1 = alta)")
+    st.markdown("**Porcentaje deseado por categoría** (el modelo respeta estos como prioridades)")
+    st.caption("El LP distribuye el presupuesto priorizando las categorías con mayor porcentaje asignado")
+
     prioridades = {}
+    total_pct = 0
     for cat in CATEGORIAS:
-        prioridades[cat] = st.slider(cat, 0.0, 1.0, 0.5, step=0.05)
+        pct = st.slider(
+        f"{cat}",
+        0,
+        int(CATEGORIAS[cat]['max'] * 100),
+        int(CATEGORIAS[cat]['min'] * 100),
+        step=5,
+        key=f"pct_{cat}"
+    )
+        prioridades[cat] = pct
+        total_pct += pct
+
+    # Mostrar total asignado
+    if total_pct > 0:
+        st.info(f"Total asignado: {total_pct}% — el LP distribuye priorizando los porcentajes mas altos")
+
+    # Normalizar porcentajes como pesos para el modelo LP
+    pesos_normalizados = {
+        cat: prioridades[cat] / total_pct if total_pct > 0 else 1/len(CATEGORIAS)
+        for cat in CATEGORIAS
+    }
 
     if st.button("Resolver"):
         if ingreso <= 0:
@@ -47,15 +69,17 @@ elif pagina == "M1 - Presupuesto":
             st.session_state.pop("resultado_m1", None)
             st.session_state.pop("presupuesto_alimentacion", None)
             st.session_state.pop("presupuesto_bienestar", None)
+        elif total_pct == 0:
+            st.error("Asigna al menos un porcentaje mayor a 0.")
         else:
-            resultado = resolver_presupuesto(ingreso, prioridades)
+            resultado = resolver_presupuesto(ingreso, pesos_normalizados)
             if resultado["estado"] == "optimo":
                 st.session_state["resultado_m1"] = resultado
                 st.session_state["ingreso_m1"] = ingreso
                 st.session_state["presupuesto_alimentacion"] = resultado["alimentacion"]
                 st.session_state["presupuesto_bienestar"] = resultado["bienestar"]
             else:
-                st.error("El modelo no tiene solución.")
+                st.error("El modelo no tiene solucion.")
 
     # Mostrar resultado guardado
     if "resultado_m1" in st.session_state:
