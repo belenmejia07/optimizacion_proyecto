@@ -39,19 +39,19 @@ elif pagina == "M1 - Presupuesto":
     st.markdown("**Porcentaje deseado por categoría** (el modelo respeta estos como prioridades)")
     st.caption("El LP distribuye el presupuesto priorizando las categorías con mayor porcentaje asignado")
 
-    prioridades = {}
-    total_pct = 0
-    for cat in CATEGORIAS:
+    prioridades = {} # Se guardan los porcentajes que el usuario elige
+    total_pct = 0 # Contador que suma los porcetajes elejidos para mostrar el total
+    for cat in CATEGORIAS: # Recorre cada categoria para pedir el porcentaje
         pct = st.slider(
-        f"{cat}",
-        0,
-        int(CATEGORIAS[cat]['max'] * 100),
-        int(CATEGORIAS[cat]['min'] * 100),
+        f"{cat}", # Etiqueta que ve el usuario
+        0, # Valor minimo
+        int(CATEGORIAS[cat]['max'] * 100), # Valor maximo
+        int(CATEGORIAS[cat]['min'] * 100), # Valor inicial 
         step=5,
         key=f"pct_{cat}"
     )
-        prioridades[cat] = pct
-        total_pct += pct
+        prioridades[cat] = pct # Guarda el valor escogido
+        total_pct += pct # Suma los porcentajes elegidos
 
     # Mostrar total asignado
     if total_pct > 0:
@@ -59,20 +59,20 @@ elif pagina == "M1 - Presupuesto":
 
     # Normalizar porcentajes como pesos para el modelo LP
     pesos_normalizados = {
-        cat: prioridades[cat] / total_pct if total_pct > 0 else 1/len(CATEGORIAS)
+        cat: prioridades[cat] / total_pct if total_pct > 0 else 1/len(CATEGORIAS) # Si no se ha ingresado nada se asigna el mismo peso a todas las categorias
         for cat in CATEGORIAS
     }
 
     if st.button("Resolver"):
         if ingreso <= 0:
             st.error("El ingreso debe ser mayor a 0.")
-            st.session_state.pop("resultado_m1", None)
+            st.session_state.pop("resultado_m1", None) # Se borran los datos viejos de la anterior resolucion
             st.session_state.pop("presupuesto_alimentacion", None)
             st.session_state.pop("presupuesto_bienestar", None)
         elif total_pct == 0:
             st.error("Asigna al menos un porcentaje mayor a 0.")
         else:
-            resultado = resolver_presupuesto(ingreso, pesos_normalizados)
+            resultado = resolver_presupuesto(ingreso, pesos_normalizados) # Se le manda al modelo de pyomo los ingresos y los pesos de cada categoria normalizados
             if resultado["estado"] == "optimo":
                 st.session_state["resultado_m1"] = resultado
                 st.session_state["ingreso_m1"] = ingreso

@@ -16,12 +16,12 @@ from pyomo.opt import SolverStatus, TerminationCondition
 
 # Categorias de gasto con sus limites como porcentaje del ingreso mensual
 CATEGORIAS = {
-    "Alimentacion":    {"min": 0.15, "max": 0.40},
-    "Transporte":      {"min": 0.05, "max": 0.20},
-    "Estudios":        {"min": 0.05, "max": 0.20},
+    "Alimentacion":    {"min": 0.15, "max": 0.35},
+    "Transporte":      {"min": 0.05, "max": 0.10},
+    "Estudios":        {"min": 0.10, "max": 0.20},
     "Salud/Bienestar": {"min": 0.05, "max": 0.15},
-    "Ocio":            {"min": 0.02, "max": 0.15},
-    "Ahorro":          {"min": 0.10, "max": 0.30},
+    "Ocio":            {"min": 0.02, "max": 0.10},
+    "Ahorro":          {"min": 0.05, "max": 0.10},
 }
 
 def resolver_presupuesto(ingreso, prioridades):
