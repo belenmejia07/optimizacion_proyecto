@@ -16,9 +16,9 @@ pagina = st.sidebar.radio(
     ["Inicio", "M1 - Presupuesto", "M2 - Comidas", "M3 - Estudios", "M4 - Bienestar", "Resumen"]
 )
 
-# ── INICIO ─────────────────────────────────────────────────────────────────
+# ── INICIO ────────────────────────────────────────────────────────────────
 if pagina == "Inicio":
-    st.title("Sistema de Optimización de Vida Estudiantil")
+    st.title("Sistema de Optimización de Vida Estudiantil") # Titulo de la pantalla de inicio
     st.write("Selecciona un módulo en el menú lateral para comenzar.")
     st.markdown("""
     | Módulo | Tipo | Descripción |
@@ -29,8 +29,9 @@ if pagina == "Inicio":
     | M4 | MINLP | Optimiza tu bienestar estudiantil |
     """)
 
+# ── MÓDULO 1 ───────────────────────────────────────────────────────────────
 elif pagina == "M1 - Presupuesto":
-    st.title("M1 - Presupuesto Mensual")
+    st.title("M1 - Presupuesto Mensual") # Titulo del primer modulo
     st.markdown("**Tipo:** Programación Lineal (LP) | **Solver:** GLPK")
     st.markdown("---")
 
@@ -63,18 +64,18 @@ elif pagina == "M1 - Presupuesto":
         for cat in CATEGORIAS
     }
 
-    if st.button("Resolver"):
-        if ingreso <= 0:
+    if st.button("Resolver"): # Se crea un boton para resolver el problema
+        if ingreso <= 0: # Primera prueba del ingreso economico
             st.error("El ingreso debe ser mayor a 0.")
             st.session_state.pop("resultado_m1", None) # Se borran los datos viejos de la anterior resolucion
             st.session_state.pop("presupuesto_alimentacion", None)
             st.session_state.pop("presupuesto_bienestar", None)
-        elif total_pct == 0:
+        elif total_pct == 0: # Segunda prueba del ingreso economico
             st.error("Asigna al menos un porcentaje mayor a 0.")
         else:
             resultado = resolver_presupuesto(ingreso, pesos_normalizados) # Se le manda al modelo de pyomo los ingresos y los pesos de cada categoria normalizados
-            if resultado["estado"] == "optimo":
-                st.session_state["resultado_m1"] = resultado
+            if resultado["estado"] == "optimo": # Si el modelo vuelve optimo
+                st.session_state["resultado_m1"] = resultado # Se guarda el resultado para que al cambiar de modulo los resultados no se borren
                 st.session_state["ingreso_m1"] = ingreso
                 st.session_state["presupuesto_alimentacion"] = resultado["alimentacion"]
                 st.session_state["presupuesto_bienestar"] = resultado["bienestar"]
@@ -83,19 +84,18 @@ elif pagina == "M1 - Presupuesto":
 
     # Mostrar resultado guardado
     if "resultado_m1" in st.session_state:
-        resultado = st.session_state["resultado_m1"]
-        ingreso_guardado = st.session_state["ingreso_m1"]
+        resultado = st.session_state["resultado_m1"] # Se lee el resultado que guardo session_state al momento de resolver el problema
+        ingreso_guardado = st.session_state["ingreso_m1"] # Se lee el dinero que ingreso el usuario
         st.success("¡Solución óptima encontrada!")
 
         df = pd.DataFrame({
-            "Categoría": list(resultado["asignaciones"].keys()),
-            "Monto (Bs)": list(resultado["asignaciones"].values()),
+            "Categoría": list(resultado["asignaciones"].keys()), # Se muestra las claves del diccionario (Alimentacion, Transporte, etc.)
+            "Monto (Bs)": list(resultado["asignaciones"].values()), # Se muestra los valores que se le asignaron
         })
-        df["% del ingreso"] = (df["Monto (Bs)"] / ingreso_guardado * 100).round(1)
+        df["% del ingreso"] = (df["Monto (Bs)"] / ingreso_guardado * 100).round(1) # Se crea una nueva columna para mostrar el porcentaje de ingreso, se divide el monto que se le asigno a cada categoria entre el ingreso economico del usuario, luego se lo multiplica por 100 para mostrar el porcetaje y se muestra solo con 1 decimal
         st.dataframe(df, hide_index=True)
-
-        fig = px.pie(df, values="Monto (Bs)", names="Categoría", title="Distribución del presupuesto")
-        st.plotly_chart(fig)
+        fig = px.pie(df, values="Monto (Bs)", names="Categoría", title="Distribución del presupuesto") # Se crea un grafico de tortas con los montos y las categorias como etiquetas
+        st.plotly_chart(fig) # Se muestra el grafico en la interfaz
         st.info(f"Alimentación disponible para M2: Bs {resultado['alimentacion']}")
 
 # ── MÓDULO 2 ───────────────────────────────────────────────────────────────
@@ -104,12 +104,13 @@ elif pagina == "M2 - Comidas":
     st.markdown("**Tipo:** Programación Lineal (LP) | **Solver:** GLPK")
     st.markdown("---")
 
-    if "presupuesto_alimentacion" not in st.session_state:
+    if "presupuesto_alimentacion" not in st.session_state: # Se verifica que se tenga el presupuesto de alimentacion resultado del Modulo 1
         st.warning("Primero debes resolver el M1.")
     else:
-        presupuesto = st.session_state["presupuesto_alimentacion"]
+        presupuesto = st.session_state["presupuesto_alimentacion"] # Se guarda ese presupuesto
         st.info(f"Presupuesto recibido del M1: Bs {presupuesto}")
 
+        # Se reciben los requerimientos necesarios, inicialmente se le pasa valores por defecto si es que el usuario no eligiera nada
         kcal_min     = st.number_input("Calorías mínimas/día", value=1800)
         kcal_max     = st.number_input("Calorías máximas/día", value=2000)
         proteina_min = st.number_input("Proteína mínima/día (g)", value=56)
@@ -121,24 +122,24 @@ elif pagina == "M2 - Comidas":
         fibra_max    = st.number_input("Fibra máxima/día (g)", value=35)
 
         if st.button("Resolver"):
-            if kcal_min >= kcal_max:
+            if kcal_min >= kcal_max: # Primer filtro de que no se ingresen valores incorrectos
                 st.error("Las calorías mínimas deben ser menores que las máximas.")
-            elif carbs_min >= carbs_max:
+            elif carbs_min >= carbs_max: # Segundo filtro
                 st.error("Los carbohidratos mínimos deben ser menores que los máximos.")
-            elif grasa_min >= grasa_max:
+            elif grasa_min >= grasa_max: # Tercer filtro
                 st.error("Las grasas mínimas deben ser menores que las máximas.")
-            elif fibra_min >= fibra_max:
+            elif fibra_min >= fibra_max: # Cuarto filtro
                 st.error("La fibra mínima debe ser menor que la máxima.")
             else:
-                resultado = resolver_comidas(
+                resultado = resolver_comidas( # Se le manda a al modulo de pyomo todo lo necesario para reslver el prolema
                     presupuesto, kcal_min, kcal_max,
                     proteina_min, carbs_min, carbs_max,
                     grasa_min, grasa_max, fibra_min, fibra_max
                 )
                 if resultado["estado"] == "optimo":
-                    st.session_state["resultado_m2"] = resultado
-                    st.session_state["kcal_cubierta"] = resultado["kcal_semanal"] / 7
-                    st.session_state["proteina_cubierta"] = resultado["proteina_semanal"] / 7
+                    st.session_state["resultado_m2"] = resultado # Si el resultado del solver es optimo se guardan los resultados
+                    st.session_state["kcal_cubierta"] = resultado["kcal_semanal"] / 7 # Se guardan las kcal por semana
+                    st.session_state["proteina_cubierta"] = resultado["proteina_semanal"] / 7 # Se guardan las proteinas por semana
                 else:
                     st.error("No se encontró solución. Ajusta los requerimientos nutricionales.")
 
@@ -148,10 +149,10 @@ elif pagina == "M2 - Comidas":
             st.success("¡Plan de comidas óptimo encontrado!")
 
             df = pd.DataFrame({
-                "Alimento": list(resultado["plan"].keys()),
-                "Porciones/semana (100g)": list(resultado["plan"].values()),
-                "Gramos/semana": [round(v * 100, 0) for v in resultado["plan"].values()],
-                "Gramos/día": [round(v * 100 / 7, 1) for v in resultado["plan"].values()],
+                "Alimento": list(resultado["plan"].keys()), # Se toman las comidad que se destinaron para la semana
+                "Porciones/semana (100g)": list(resultado["plan"].values()), # Se toman las porciones para la semana
+                "Gramos/semana": [round(v * 100, 0) for v in resultado["plan"].values()], # Se multiplica las porciones por 100 para obtener los gramos por semana, sin decimales
+                "Gramos/día": [round(v * 100 / 7, 1) for v in resultado["plan"].values()], # Se divide esos gramos por dia, redondeado a 1 decimal
             })
             st.dataframe(df, hide_index=True)
 
