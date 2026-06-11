@@ -180,6 +180,7 @@ elif pagina == "M3 - Estudios":
     st.markdown("**Bloques bloqueados** (clases, compromisos fijos)")
     st.caption("Selecciona los bloques en los que NO puedes estudiar")
 
+    # Aqui se verfica cuales son los bloques que estaran bloqueados
     bloques_bloqueados = []
     for d in DIAS:
         cols = st.columns(4)

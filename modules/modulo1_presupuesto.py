@@ -30,7 +30,7 @@ def resolver_presupuesto(ingreso, prioridades):
 
     Parametros:
         ingreso (float): Ingreso mensual disponible en Bs.
-        prioridades (dict): Peso de importancia por categoria, entre 0 y 1.
+        prioridades (dict): Peso de importancia por categoria.
 
     Retorna:
         dict con estado, asignaciones por categoria, y presupuestos
@@ -38,7 +38,7 @@ def resolver_presupuesto(ingreso, prioridades):
     """
 
     model = pyo.ConcreteModel()
-    categorias = list(CATEGORIAS.keys())
+    categorias = list(CATEGORIAS.keys()) # Se toma solo los nombres de las categorias
 
     # Variables de decision: monto asignado a cada categoria (continuas, >= 0)
     model.x = pyo.Var(categorias, domain=pyo.NonNegativeReals)
@@ -55,10 +55,10 @@ def resolver_presupuesto(ingreso, prioridades):
     )
 
     # Restriccion 2: cada categoria respeta su rango minimo y maximo
-    model.limites = pyo.ConstraintList()
-    for c in categorias:
-        model.limites.add(model.x[c] >= CATEGORIAS[c]["min"] * ingreso)
-        model.limites.add(model.x[c] <= CATEGORIAS[c]["max"] * ingreso)
+    model.limites = pyo.ConstraintList() # Se crea una lista de restricciones por cada categoria
+    for c in categorias: # Se itera por categoria
+        model.limites.add(model.x[c] >= CATEGORIAS[c]["min"] * ingreso) # A cada categoria no se le asigna menos que el minimo
+        model.limites.add(model.x[c] <= CATEGORIAS[c]["max"] * ingreso) # A cada categoria no se le asigna mas que el maximo
 
     # Resolver con GLPK
     solver = pyo.SolverFactory("glpk")
