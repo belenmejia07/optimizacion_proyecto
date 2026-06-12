@@ -1,3 +1,4 @@
+# En esta archivo se probo que el solver ipopt funcione correctamente
 import pyomo.environ as pyo
 
 m = pyo.ConcreteModel()
